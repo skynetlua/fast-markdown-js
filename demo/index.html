@@ -7,11 +7,25 @@
 </head>
 <body>
 
+<textarea id="text-input" oninput="this.editor.update()" rows="60" cols="100">
+</textarea>
+
 <div id="preview"> </div>
 
 <script src="jquery-2.1.1.min.js"></script>
 <script src="highlight.pack.js"></script>
 <script src="../fastmarkdown.js"></script>
+
+<script>
+    function Editor(input, preview) {
+        this.update = function () {
+          preview.innerHTML = FastMarkDown(input.value);
+        };
+        input.editor = this;
+        this.update();
+    }
+    new Editor($("#text-input"), $("#preview"));
+</script>
 
 <script>
 var test_txt = "\
@@ -84,21 +98,27 @@ export  $initHighlight;\n\
 \
 ";
 
+
+
 $(function(){
-    var startTime = Date.now();
-    for (var i = 0; i < 10000; i++) {
-        var htmlTxt = FastMarkDown(test_txt);
-        // $("#preview").html(htmlTxt);
-    }
-    var endTime = Date.now();
-    console.log("cost time:",endTime-startTime);
-	// var $codes = $("pre code");
-	// $codes.each(function(j, code) {
-	// 	var $code = $(code);
-	// 	if (!$code.hasClass('hljs')) {
-	// 		hljs.highlightBlock($code.get(0));
-	// 	}
-	// });
+    
+    $("#text-input").val(test_txt);
+    var htmlTxt = FastMarkDown(test_txt);
+    $("#preview").html(htmlTxt);
+	var $codes = $("pre code");
+	$codes.each(function(j, code) {
+		var $code = $(code);
+		if (!$code.hasClass('hljs')) {
+			hljs.highlightBlock($code.get(0));
+		}
+	});
+
+    // var startTime = Date.now();
+    // for (var i = 0; i < 10000; i++) {
+    //     var htmlTxt = FastMarkDown(test_txt);
+    // }
+    // var endTime = Date.now();
+    // console.log("cost time:",endTime-startTime);
 });
 
 
