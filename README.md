@@ -1,6 +1,8 @@
 # fast-markdown-js
 Yet another Markdown parser, this time for JavaScript. 
 It is a fastest JavaScript Markdown parser.
+The source code just has 700 lines.
+It is fast,power and too small.
 
 # Usage
 
@@ -17,7 +19,7 @@ var htmlTxt = FastMarkDown(md_txt);
 $("#preview").html(htmlTxt);
 ```
 
-# test parse Speed
+# Test parse speed
 
 **10000 times** just cost **1637 millisecond**.
 [markdown-js](https://github.com/evilstreak/markdown-js): 100 times cost 10 second
