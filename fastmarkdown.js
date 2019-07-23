@@ -20,70 +20,76 @@ var FastWidget = (function() {
 			}
 			return this;
 		},
-		concat:function(txts) {
-			var empty = "";
-			return empty.concat.apply(empty, txts);
-		},
 		echo: function() {
-			var props = "";
-			if (this._props) {
-				props = [];
-				for (k in this._props) {
-					if (typeof(this._props[k]) === "string") {
-						props.push(" ", k, "=\"", this._props[k], "\"");
-					} else {
-						props.push(" ", k, "=", this._props[k]);
+			if(this._name === "txt"){
+				var retval = self._text || "";
+				if (this._childs){
+					for (var i = 0, len = this._childs.length; i < len; i++) {
+						retval = retval+this._childs[i].echo();
 					}
 				}
-				props = this.concat(props);
+				return retval;
+			}
+			var retval = "<" + this._name + " ";
+			if (this._props) {
+				for (k in this._props) {
+					if (typeof(this._props[k]) === "string") {
+						retval = retval+k+"=\""+this._props[k]+"\" ";
+					} else {
+						retval = retval+k+"="+this._props[k]+" ";
+					}
+				}
 			}
 			if (!this._text && !this._childs) {
-				return this.concat(["<", this._name, " ", props, " />"]);
+				return retval + "/>";
 			}
-			var childs = "";
+			retval = retval+ ">"+ (this._text || "")
 			if (this._childs) {
-				childs = [];
 				for (var i = 0, len = this._childs.length; i < len; i++) {
-					childs.push(this._childs[i].echo());
+					retval = retval + this._childs[i].echo();
 				}
-				childs = this.concat(childs);
 			}
-			return this.concat(["<", this._name, props, ">", childs, this._text || "", "</", this._name, ">"]);
+			return retval+ "</"+ this._name+">";
 		},
 		goodecho: function(sep, depth) {
 			sep = sep || "\n";
 			depth = depth || 0;
-			var indent = [];
-			for (var i = 0; i < depth; i++) {indent.push("	");}
-			indent = this.concat(indent);
-			var props = "";
-			if (this._props) {
-				props = [];
-				for (k in this._props) {
-					if (typeof(this._props[k]) === "string") {
-						props.push(" ", k, "=\"", this._props[k], "\"");
-					} else {
-						props.push(" ", k, "=", this._props[k]);
+			var indent = "";
+			for (var i = 0; i < depth; i++) {indent = indent+"	";}
+			if(this._name === "txt"){
+				var retval = indent+(self._text || "");
+				if (this._childs){
+					for (var i = 0, len = this._childs.length; i < len; i++) {
+						retval = retval+this._childs[i].echo();
 					}
 				}
-				props = this.concat(props);
+				return retval;
+			}
+			var retval = "";
+			if (this._props) {
+				for (k in this._props) {
+					if (typeof(this._props[k]) === "string") {
+						retval = retval+k+"=\""+this._props[k]+"\" ";
+					} else {
+						retval = retval+k+"="+this._props[k]+" ";
+					}
+				}
 			}
 			if (!this._text && !this._childs) {
-				return this.concat([indent, "<", this._name, " ", props, "/>", sep]);
+				return indent+"<"+this._name+" "+props+"/>"+sep;
 			}
 			var preseq = sep;
 			var suindent = indent;
-			var childs = "";
+			var retval = this._text || "";
 			if (this._childs) {
-				childs = [];
 				for (var i = 0, len = this._childs.length; i < len; i++) {
-					childs.push(this._childs[i].goodecho(sep, depth + 1));
+					retval = retval+this._childs[i].goodecho(sep, depth + 1);
 				}
-				childs = this.concat(childs);
 			} else {
-				preseq = "";suindent = "";
+				preseq = "";
+				suindent = "";
 			}
-			return this.concat([indent, "<", this._name, props, ">", preseq, childs, this._text || "", suindent, "</", this._name, ">", sep]);
+			return indent+"<"+this._name+" "+props+">"+preseq+retval+suindent+"</"+this._name+">"+sep;
 		}
 	};
 	return function(name) {
