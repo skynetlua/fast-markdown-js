@@ -1,4 +1,5 @@
 var FastWidget = (function() {
+	var create_widget;
 	function Widget(name) {
 		this._name = name;
 	}
@@ -15,9 +16,26 @@ var FastWidget = (function() {
 					} else if (typeof(arg) === "object") {
 						this._props = this._props || {};
 						for (k in arg) {this._props[k] = arg[k];}
+					}else{
+						console.assert(false);
 					}
 				}
 			}
+			return this;
+		},
+		addchild:function(child) {
+			this._childs = this._childs || [];
+			this._childs.push(child);
+			return this;
+		},
+		new:function() {
+			var child = create_widget.apply(null, arguments);
+			this.addchild(child);
+			return child;
+		},
+		setprop:function(key, val) {
+			this._props = this._props || {};
+			this._props[key] = val;
 			return this;
 		},
 		echo: function() {
@@ -65,13 +83,13 @@ var FastWidget = (function() {
 				}
 				return retval;
 			}
-			var retval = "";
+			var props = "";
 			if (this._props) {
 				for (k in this._props) {
 					if (typeof(this._props[k]) === "string") {
-						retval = retval+k+"=\""+this._props[k]+"\" ";
+						props = props+k+"=\""+this._props[k]+"\" ";
 					} else {
-						retval = retval+k+"="+this._props[k]+" ";
+						props = props+k+"="+this._props[k]+" ";
 					}
 				}
 			}
@@ -92,13 +110,16 @@ var FastWidget = (function() {
 			return indent+"<"+this._name+" "+props+">"+preseq+retval+suindent+"</"+this._name+">"+sep;
 		}
 	};
-	return function(name) {
+	create_widget = function(name) {
 		var wgt = new Widget(name);
-		for (var i = 1, len = arguments.length; i < len; i++) {
-			wgt.set(arguments[i]);
+		if (arguments.length > 1) {
+			for (var i = 1, len = arguments.length; i < len; i++) {
+				wgt.set(arguments[i]);
+			}
 		}
 		return wgt;
 	};
+	return create_widget;
 })();
 
 
