@@ -40,7 +40,7 @@ var FastWidget = (function() {
 		},
 		echo: function() {
 			if(this._name === "txt"){
-				var retval = self._text || "";
+				var retval = this._text || "";
 				if (this._childs){
 					for (var i = 0, len = this._childs.length; i < len; i++) {
 						retval = retval+this._childs[i].echo();
@@ -51,14 +51,15 @@ var FastWidget = (function() {
 			var retval = "<" + this._name + " ";
 			if (this._props) {
 				for (k in this._props) {
-					if (typeof(this._props[k]) === "string") {
-						retval = retval+k+"=\""+this._props[k]+"\" ";
+					var val = this._props[k];
+					if (typeof(val) === "string") {
+						retval = retval+k+"=\""+val+"\" ";
 					} else {
-						retval = retval+k+"="+this._props[k]+" ";
+						retval = retval+k+"="+val+" ";
 					}
 				}
 			}
-			if (!this._text && !this._childs) {
+			if (typeof(this._text) == "undefined" && !this._childs) {
 				return retval + "/>";
 			}
 			retval = retval+ ">"+ (this._text || "")
@@ -75,7 +76,7 @@ var FastWidget = (function() {
 			var indent = "";
 			for (var i = 0; i < depth; i++) {indent = indent+"	";}
 			if(this._name === "txt"){
-				var retval = indent+(self._text || "");
+				var retval = indent+(this._text || "");
 				if (this._childs){
 					for (var i = 0, len = this._childs.length; i < len; i++) {
 						retval = retval+this._childs[i].echo();
@@ -93,7 +94,7 @@ var FastWidget = (function() {
 					}
 				}
 			}
-			if (!this._text && !this._childs) {
+			if (typeof(this._text) == "undefined" && !this._childs) {
 				return indent+"<"+this._name+" "+props+"/>"+sep;
 			}
 			var preseq = sep;
@@ -113,9 +114,7 @@ var FastWidget = (function() {
 	create_widget = function(name) {
 		var wgt = new Widget(name);
 		if (arguments.length > 1) {
-			for (var i = 1, len = arguments.length; i < len; i++) {
-				wgt.set(arguments[i]);
-			}
+			wgt.set.apply(wgt, [].slice.call(arguments, 1));
 		}
 		return wgt;
 	};
@@ -139,11 +138,22 @@ var FastMarkDown = (function() {
 		["mark", null, "==", "=="],
 		["del", null, "~~", "~~"],
 	];
-	var Nodes = {"p": ["p"],"br": ["br"],"ol": ["ol"],"pre": ["pre"],
+	var Nodes = {
+		"txt":["txt"],"p": ["p"],"br": ["br"],"ol": ["ol"],"pre": ["pre"],
 		"table": ["table"],"caption": ["caption"],"thead": ["thead"],"th": ["th"],
 		"tbody": ["tbody"],"tr": ["tr"],"td": ["td"],"li": ["li"],"div": ["div"],
 	};
 	var widget = FastWidget;
+
+	var is_empty_txt = function(txt){
+		for (var i = 0; i < txt.length; i++) {
+			if (txt[i] != " "){
+				return;
+			}
+		}
+	    return true;
+	}
+
 	function Piece() {}
 	Piece.prototype = {
 		searchNode: function(txt, idx, len, nodes) {
@@ -151,18 +161,41 @@ var FastMarkDown = (function() {
 			for (var i = 0, nlen = nodes.length; i < nlen; i++) {
 				node = nodes[i];
 				pattern = node[2];
-				for (var j = 0, plen = pattern.length; j < plen; j++) {
-					if (pattern[j] != txt[idx + j]) {
-						node = null;break;
+				if (pattern[0] == txt[idx]) {
+					for (var j = 0, plen = pattern.length; j < plen; j++) {
+						if (pattern[j] != txt[idx + j]) {
+							node = null;break;
+						}
 					}
-				}
-				if (node) {
-					this.startIdx = idx + pattern.length;
-					return node;
+					if (node) {
+						var tpattern = node[3];
+						if (tpattern) {
+							for (var j = idx+pattern.length; j < len; j++) {
+								if (tpattern[0] == txt[j]){
+									for (var k = 0; k < tpattern.length; k++) {
+										if (tpattern[k] != txt[j+k]){
+											node = null;
+											break;
+										}
+									}
+									if (node){
+										this.startIdx = idx + pattern.length;
+										return node
+									}
+								}
+							}
+						}else{
+							this.startIdx = idx + pattern.length;
+							return node
+						}
+					}
 				}
 			}
 		},
 		searchPattern: function(txt, idx, len, pattern) {
+			if (pattern[0] != txt[idx]){
+				return;
+			}
 			var k, plen = pattern.length;
 			for (var i = 0; i < plen; i++) {
 				k = idx + i;
@@ -181,8 +214,8 @@ var FastMarkDown = (function() {
 			}
 		},
 		processNext: function(txt, idx, len) {
-			var startIdx = idx,
-				pattern = this._node[4];
+			var startIdx = idx;
+			var pattern = this._node[4];
 			while (idx < len) {
 				if (this.isCheckChar(txt, idx)) {
 					if (this.searchPattern(txt, idx, len, pattern)) {
@@ -226,7 +259,7 @@ var FastMarkDown = (function() {
 							var piece = new Piece();
 							var next = piece.process(txt, idx, len);
 							if (next == idx) {break;}
-							if (piece._node == Nodes["p"]) {
+							if (piece._node == Nodes["txt"]) {
 								break;
 							}
 							this._childs = this._childs || [];
@@ -239,7 +272,7 @@ var FastMarkDown = (function() {
 				while (idx < len) {
 					if (this.isCheckChar(txt, idx)) {
 						if (this.searchNode(txt, idx, len, InlineNodes)) {
-							this._node = Nodes["p"];
+							this._node = Nodes["txt"];
 							this.startIdx = startIdx;
 							this.endIdx = idx;
 							this._content = txt.substring(this.startIdx, this.endIdx);
@@ -249,14 +282,20 @@ var FastMarkDown = (function() {
 					idx++;
 				}
 			}
-			this._node = Nodes["p"];
+			this._node = Nodes["txt"];
 			this.startIdx = startIdx;
 			this.endIdx = len;
 			this._content = txt.substring(this.startIdx, this.endIdx);
 			return startIdx + len;
 		},
 		render: function(parent) {
-			var wdt, node = this._node;
+			var wdt;
+			var node = this._node;
+			if (node == Nodes["txt"]){
+				if (is_empty_txt(this._content)){
+					return;
+				}
+			}
 			if (node[4]) {
 				var strs = this._content1.split(" ");
 				var props = {};
@@ -286,8 +325,10 @@ var FastMarkDown = (function() {
 				for (var i = 0; i < this._childs.length; i++) {
 					this._childs[i].render(wdt);
 				}
-			} else if (node[1]) {
-				wdt.set(widget(node[1], this._content));
+			// } else if (node[0]) {
+			// 	if (node[0] != 'a' && node[0] != 'img'){
+			// 		wdt.set(widget(node[0], this._content));
+			// 	}
 			} else {
 				if (!node[4]) {
 					wdt.set(this._content);
@@ -390,7 +431,7 @@ var FastMarkDown = (function() {
 					}
 				}
 			}
-			this._node = Nodes["p"];
+			this._node = Nodes["txt"];
 			this.startIdx = 0;
 			this.endIdx = len;
 			return point
@@ -436,14 +477,14 @@ var FastMarkDown = (function() {
 				var sameChar = this._node[1][0];
 				for (var i = 0; i < len; i++) {
 					if (txt[i] != sameChar) {
-						this._node = Nodes["p"];
+						this._node = Nodes["txt"];
 						this.startIdx = 0;
 						this.endIdx = len;
 						break;
 					}
 				}
 			}
-			if (this._node[0] == "p") {
+			if (this._node[0] == "txt") {
 				var char = this._line[this._spaceNum];
 				if (char == "|" || char == ":" || char == "-") {
 					this.searchTable(this._line, this._spaceNum, this.endIdx);
@@ -462,7 +503,13 @@ var FastMarkDown = (function() {
 			return point;
 		},
 		searchPieces: function() {
+			if (this._node[1] == "hr"){
+				return;
+			}
 			if (this._lines || !this._line) {
+				return;
+			}
+			if (this.startIdx >= this.endIdx){
 				return;
 			}
 			var txt = this._line;
@@ -478,8 +525,10 @@ var FastMarkDown = (function() {
 			}
 		},
 		render: function(parent) {
-			var wdt = widget(this._node[0])
-			parent.set(wdt);
+			var wdt = widget(this._node[0]);
+			if(parent){
+				parent.set(wdt);
+			}
 			if (this._node[0] == "pre") {
 				var codeName = this._line.substring(this.startIdx, this.endIdx);
 				this._lines.push("\n");
@@ -495,15 +544,16 @@ var FastMarkDown = (function() {
 				}
 				codeTxt = "".concat.apply("", codes);
 				wdt.set(widget("code", {class: codeName}, codeTxt));
-				return;
+				return wdt;
 			}
 			var childs = this._childs;
 			if (!childs || childs.length == 0) {
-				return;
+				return wdt;
 			}
 			for (var i = 0, len = childs.length; i < len; i++) {
 				childs[i].render(wdt);
 			}
+			return wdt;
 		}
 	};
 	function GroupBlock() {}
@@ -558,7 +608,7 @@ var FastMarkDown = (function() {
 		var ctlBlock = blocks[point];
 		var num = ctlBlock.table.length;
 		var headBlock = cbBlocks[cbBlocks.length - 1];
-		if (!headBlock || headBlock._node[0] != "p") {
+		if (!headBlock || headBlock._node[0] != "txt") {
 			return originPoint;
 		}
 		var ths = headBlock._line.split("|");
@@ -582,7 +632,7 @@ var FastMarkDown = (function() {
 			trBlock._childs.push(pBlock);
 		}
 		var capBlock = cbBlocks[cbBlocks.length - 1];
-		if (capBlock && capBlock._node[0] == "p") {
+		if (capBlock && capBlock._node[0] == "txt") {
 			var m = /^\s*\|(.+)\|\s*$/.exec(capBlock._line);
 			if (m && m[1].length > 0) {
 				pBlock = new Block();
@@ -605,7 +655,7 @@ var FastMarkDown = (function() {
 		tbodyBlock._node = Nodes["tbody"];
 		while (point < len) {
 			block = blocks[point];
-			if (block._node[0] == "p") {
+			if (block._node[0] == "txt") {
 				var tds = block._line.split("|");
 				if (tds.length >= 2) {
 					this.bodyBlocks = this.bodyBlocks || [];
@@ -650,7 +700,7 @@ var FastMarkDown = (function() {
 					point = next;
 					continue;
 				} else {
-					block._node = Nodes["p"];
+					block._node = Nodes["txt"];
 				}
 			} else {
 				if (name == "table") {
@@ -661,7 +711,7 @@ var FastMarkDown = (function() {
 						point = next;
 						continue;
 					} else {
-						block._node = Nodes["p"];
+						block._node = Nodes["txt"];
 					}
 				}
 			}
@@ -670,8 +720,8 @@ var FastMarkDown = (function() {
 		}
 		for (var i = 0, len = cbBlocks.length; i < len; i++) {
 			block = cbBlocks[i];
-			if (block._node == Nodes["p"]) {
-				block._node = Nodes["div"];
+			if (block._node == Nodes["txt"]) {
+				block._node = Nodes["p"];
 			}
 		}
 		return cbBlocks;
@@ -700,6 +750,9 @@ var FastMarkDown = (function() {
 	}
 
 	function setWidgetsProps(wdt, props) {
+		if (!props) {
+			return;
+		}
 		wdt.set(props);
 		if (wdt._childs) {
 			for (var i = 0, len = wdt._childs.length; i < len; i++) {
@@ -708,15 +761,20 @@ var FastMarkDown = (function() {
 		}
 	}
 	function showDom(blocks, props) {
-		var _root = widget("div");
+		var wgts = [];
 		for (var i = 0; i < blocks.length; i++) {
-			blocks[i].render(_root);
+			wgts.push(blocks[i].render());
 		}
-		// props = props || {id: "fmd"};
-		setWidgetsProps(_root, props);
-		return _root.goodecho();
+		var html = "";
+		for (var i = 0; i < wgts.length; i++) {
+			html = html+wgts[i].echo();
+		}
+		return html;
 	}
 	return function(text, props) {
+		if (!text) {
+			return;
+		}
 		var blocks = processBlock(text);
 		return showDom(blocks, props);
 	}
